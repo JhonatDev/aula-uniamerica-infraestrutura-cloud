@@ -1,98 +1,90 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
-const bodyParser = require('body-parser');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const {
+  DynamoDBDocumentClient,
+  ScanCommand,
+  PutCommand,
+  UpdateCommand,
+  DeleteCommand,
+} = require('@aws-sdk/lib-dynamodb');
+const { randomUUID } = require('crypto');
 
-// Inicializando o app Express
+const client = new DynamoDBClient({});
+const ddb = DynamoDBDocumentClient.from(client);
+const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'Todos';
+
 const app = express();
-const port = 5000;
-
-// Conexão com o MongoDB (com autenticação)
-mongoose.connect('mongodb://root:rootpassword@mongo-todo:27017/todo-app?authSource=admin', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-  .then(() => console.log('Conectado ao MongoDB'))
-  .catch((err) => console.error('Erro ao conectar ao MongoDB:', err));
-
-// Middleware para habilitar CORS e processar JSON
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-// Definindo o modelo de Tarefa (To-do)
-const TodoSchema = new mongoose.Schema({
-  text: { type: String, required: true },
-  completed: { type: Boolean, default: false },
-});
-
-const Todo = mongoose.model('Todo', TodoSchema);
-
-// Rota para obter todas as tarefas (GET)
-app.get('/todos', async (req, res) => {
+// GET /todos
+app.get('/todos', async (_req, res) => {
   try {
-    const todos = await Todo.find(); // Retorna todas as tarefas do banco
-    res.json(todos);
+    const data = await ddb.send(new ScanCommand({ TableName: TABLE_NAME }));
+    res.json(data.Items || []);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Erro ao buscar tarefas:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Rota para adicionar uma nova tarefa (POST)
+// POST /todos
 app.post('/todos', async (req, res) => {
-  const { text } = req.body; // Obtém o texto da tarefa do corpo da requisição
-
-  // Verifica se o campo "text" está presente
-  if (!text) {
-    return res.status(400).json({ message: 'O campo "text" é obrigatório' });
-  }
-
-  const todo = new Todo({
-    text,
-    completed: false,
-  });
-
   try {
-    const newTodo = await todo.save(); // Salva a tarefa no banco
-    res.status(201).json(newTodo); // Retorna a tarefa criada
+    const item = {
+      id: randomUUID(),
+      text: req.body.text,
+      completed: false,
+    };
+    await ddb.send(new PutCommand({ TableName: TABLE_NAME, Item: item }));
+    res.status(201).json(item);
   } catch (err) {
-    res.status(400).json({ message: err.message }); // Retorna erro se houver falha no banco de dados
+    console.error('Erro ao criar tarefa:', err);
+    res.status(400).json({ error: err.message });
   }
 });
 
-// Rota para marcar uma tarefa como concluída (PATCH)
+// PATCH /todos/:id
 app.patch('/todos/:id', async (req, res) => {
   try {
-    const todo = await Todo.findById(req.params.id); // Encontra a tarefa pelo ID
-
-    if (!todo) {
-      return res.status(404).json({ message: 'Tarefa não encontrada' });
-    }
-
-    // Alterna o status de "completed" da tarefa
-    todo.completed = !todo.completed;
-    await todo.save(); // Salva a tarefa modificada
-    res.json(todo); // Retorna a tarefa atualizada
+    const { completed } = req.body;
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: { id: req.params.id },
+        UpdateExpression: 'set completed = :c',
+        ExpressionAttributeValues: { ':c': completed !== undefined ? completed : true },
+      })
+    );
+    res.sendStatus(200);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Erro ao atualizar tarefa:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Rota para excluir uma tarefa (DELETE)
+// DELETE /todos/:id
 app.delete('/todos/:id', async (req, res) => {
   try {
-    const todo = await Todo.findByIdAndDelete(req.params.id); // Deleta a tarefa pelo ID
-
-    if (!todo) {
-      return res.status(404).json({ message: 'Tarefa não encontrada' });
-    }
-
-    res.json({ message: 'Tarefa excluída com sucesso' }); // Retorna uma mensagem de sucesso
+    await ddb.send(
+      new DeleteCommand({
+        TableName: TABLE_NAME,
+        Key: { id: req.params.id },
+      })
+    );
+    res.sendStatus(204);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Erro ao excluir tarefa:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Iniciando o servidor na porta 5000
-app.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
-});
+module.exports = app;
+
+if (require.main === module) {
+  const port = process.env.PORT || 5000;
+  app.listen(port, () => {
+    console.log(`Servidor rodando na porta ${port}`);
+  });
+}
