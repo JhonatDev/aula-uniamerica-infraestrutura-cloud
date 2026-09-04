@@ -2,10 +2,16 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Back-end serverless do To-Do App
 
+Parameters:
+  AllowedOrigin:
+    Type: String
+    Description: Origem autorizada a consumir a API pelo navegador
+    Default: http://localhost:3000
+
 Globals:
   Function:
     Timeout: 10
-    Runtime: nodejs20.x
+    Runtime: nodejs24.x
     MemorySize: 128
 
 Resources:
@@ -21,12 +27,12 @@ Resources:
         - AttributeName: id
           KeyType: HASH
 
-  ServerlessHttpApi:
+  TodoHttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
       CorsConfiguration:
         AllowOrigins:
-          - "*"
+          - !Ref AllowedOrigin
         AllowMethods:
           - GET
           - POST
@@ -43,6 +49,7 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_TABLE_NAME: !Ref TodosTable
+          CORS_ALLOWED_ORIGINS: !Ref AllowedOrigin
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TodosTable
@@ -52,9 +59,9 @@ Resources:
           Properties:
             Path: /{proxy+}
             Method: ANY
-            ApiId: !Ref ServerlessHttpApi
+            ApiId: !Ref TodoHttpApi
 
 Outputs:
   ApiUrl:
     Description: URL do API Gateway
-    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+    Value: !Sub "https://${TodoHttpApi}.execute-api.${AWS::Region}.amazonaws.com"

@@ -1,1 +1,27 @@
-data
+# Dependencies
+node_modules/
+
+# Build artifacts
+frontend/build/
+backend/.aws-sam/
+.aws-sam/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Test coverage and logs
+coverage/
+*.log
+npm-debug.log*
+
+# Local databases
+data/
+banco-de-dados/data/
+
+# Operating system and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
