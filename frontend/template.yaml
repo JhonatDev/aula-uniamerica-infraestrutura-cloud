@@ -1,0 +1,256 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Front-end React redundante com CloudFront e dois buckets S3 privados
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: Ambiente associado aos recursos
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+  ApiOrigin:
+    Type: String
+    Description: Origem HTTPS da API permitida pela Content Security Policy
+    AllowedPattern: '^https://[^/]+$'
+
+Resources:
+  PrimaryBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: CleanupOldVersions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 7
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Project
+          Value: uniamerica
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Role
+          Value: frontend-primary
+
+  SecondaryBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: CleanupOldVersions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 7
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Project
+          Value: uniamerica
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Role
+          Value: frontend-secondary
+
+  FrontendOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Description: Acesso assinado do CloudFront aos buckets privados do front-end
+        Name: !Sub '${AWS::StackName}-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  FrontendCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Comment: Cache otimizado para os arquivos estaticos do React
+        DefaultTTL: 300
+        MaxTTL: 31536000
+        MinTTL: 0
+        Name: !Sub '${AWS::StackName}-cache'
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: none
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  FrontendSecurityHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Comment: Cabecalhos de seguranca do front-end React
+        Name: !Sub '${AWS::StackName}-security-headers'
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: !Sub "default-src 'self'; connect-src 'self' ${ApiOrigin}; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+            Override: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: strict-origin-when-cross-origin
+            Override: true
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Override: true
+            Preload: true
+
+  FrontendDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: Front-end serverless redundante do To-Do App
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 0
+            ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCachingMinTTL: 0
+            ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          CachePolicyId: !Ref FrontendCachePolicy
+          Compress: true
+          ResponseHeadersPolicyId: !Ref FrontendSecurityHeadersPolicy
+          TargetOriginId: frontend-origin-group
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        OriginGroups:
+          Items:
+            - FailoverCriteria:
+                StatusCodes:
+                  Items:
+                    - 403
+                    - 404
+                    - 500
+                    - 502
+                    - 503
+                    - 504
+                  Quantity: 6
+              Id: frontend-origin-group
+              Members:
+                Items:
+                  - OriginId: primary-s3-origin
+                  - OriginId: secondary-s3-origin
+                Quantity: 2
+          Quantity: 1
+        Origins:
+          - DomainName: !GetAtt PrimaryBucket.RegionalDomainName
+            Id: primary-s3-origin
+            OriginAccessControlId: !GetAtt FrontendOriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+          - DomainName: !GetAtt SecondaryBucket.RegionalDomainName
+            Id: secondary-s3-origin
+            OriginAccessControlId: !GetAtt FrontendOriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        PriceClass: PriceClass_100
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: none
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+      Tags:
+        - Key: Project
+          Value: uniamerica
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  PrimaryBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref PrimaryBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${PrimaryBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}'
+
+  SecondaryBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SecondaryBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${SecondaryBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}'
+
+Outputs:
+  DistributionId:
+    Description: Identificador da distribuicao CloudFront
+    Value: !Ref FrontendDistribution
+  FrontendUrl:
+    Description: URL HTTPS temporaria do front-end
+    Value: !Sub 'https://${FrontendDistribution.DomainName}'
+  PrimaryBucketName:
+    Description: Bucket S3 primario
+    Value: !Ref PrimaryBucket
+  SecondaryBucketName:
+    Description: Bucket S3 secundario
+    Value: !Ref SecondaryBucket

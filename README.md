@@ -46,3 +46,22 @@ Após o deploy, utilize o output `ApiUrl` para testar o CRUD real:
 ```
 
 O endpoint `execute-api` é temporário. Ele será desativado depois que o domínio personalizado da API estiver configurado.
+
+## Deploy do front-end redundante
+
+O front-end utiliza CloudFront com dois buckets S3 privados em um grupo de origem com failover. O script gera o build, implanta a infraestrutura, sincroniza os dois buckets e invalida o cache:
+
+```powershell
+.\frontend\scripts\deploy.ps1
+```
+
+Os outputs do script podem ser usados para validar HTTPS, cabeçalhos de segurança, bloqueio do acesso direto aos buckets e a recuperação de um objeto exclusivo da origem secundária:
+
+```powershell
+.\frontend\scripts\smoke-test.ps1 `
+  -FrontendUrl 'https://ID.cloudfront.net' `
+  -PrimaryBucket 'BUCKET_PRIMARIO' `
+  -SecondaryBucket 'BUCKET_SECUNDARIO'
+```
+
+O domínio padrão do CloudFront é temporário. Na Task 5 ele será associado ao domínio definitivo e a um certificado ACM.

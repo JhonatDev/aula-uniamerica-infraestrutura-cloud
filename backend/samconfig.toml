@@ -13,7 +13,7 @@ profile = "uniamerica-deployer"
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
 fail_on_empty_changeset = false
-parameter_overrides = "AllowedOrigin=\"http://localhost:3000\" EnvironmentName=\"dev\""
+parameter_overrides = "AllowedOrigins=\"http://localhost:3000,https://dnup1s3c9bqg8.cloudfront.net\" EnvironmentName=\"dev\""
 tags = "Project=\"uniamerica\" Environment=\"dev\""
 
 [default.validate.parameters]
