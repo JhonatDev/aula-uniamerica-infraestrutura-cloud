@@ -7,18 +7,30 @@ Parameters:
     Type: String
     Description: Origem autorizada a consumir a API pelo navegador
     Default: http://localhost:3000
+  EnvironmentName:
+    Type: String
+    Description: Ambiente associado aos recursos
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
 
 Globals:
   Function:
     Timeout: 10
     Runtime: nodejs24.x
     MemorySize: 128
+    Architectures:
+      - x86_64
+    Tags:
+      Project: uniamerica
+      Environment: !Ref EnvironmentName
 
 Resources:
   TodosTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: Todos
+      TableName: !Sub '${AWS::StackName}-todos'
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: id
@@ -26,10 +38,36 @@ Resources:
       KeySchema:
         - AttributeName: id
           KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: uniamerica
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${AWS::StackName}'
+      RetentionInDays: 7
+      Tags:
+        - Key: Project
+          Value: uniamerica
+        - Key: Environment
+          Value: !Ref EnvironmentName
 
   TodoHttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
+      Name: !Sub '${AWS::StackName}-http-api'
+      Description: API HTTP serverless do To-Do App
+      DisableExecuteApiEndpoint: false
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","routeKey":"$context.routeKey","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
+      DefaultRouteSettings:
+        DetailedMetricsEnabled: false
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
       CorsConfiguration:
         AllowOrigins:
           - !Ref AllowedOrigin
@@ -38,21 +76,40 @@ Resources:
           - POST
           - PATCH
           - DELETE
+          - OPTIONS
         AllowHeaders:
           - Content-Type
+        MaxAge: 600
+      Tags:
+        Project: uniamerica
+        Environment: !Ref EnvironmentName
 
   TodoApiFunction:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: !Sub '${AWS::StackName}-api'
+      Description: API Express executada em AWS Lambda
       Handler: lambda.handler
       CodeUri: ./
+      LoggingConfig:
+        LogFormat: JSON
+        ApplicationLogLevel: INFO
+        SystemLogLevel: INFO
       Environment:
         Variables:
           DYNAMODB_TABLE_NAME: !Ref TodosTable
           CORS_ALLOWED_ORIGINS: !Ref AllowedOrigin
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref TodosTable
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: TodoTableCrud
+              Effect: Allow
+              Action:
+                - dynamodb:Scan
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt TodosTable.Arn
       Events:
         ApiEvent:
           Type: HttpApi
@@ -61,7 +118,33 @@ Resources:
             Method: ANY
             ApiId: !Ref TodoHttpApi
 
+  FunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${TodoApiFunction}'
+      RetentionInDays: 7
+      Tags:
+        - Key: Project
+          Value: uniamerica
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
 Outputs:
   ApiUrl:
-    Description: URL do API Gateway
-    Value: !Sub "https://${TodoHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+    Description: URL HTTPS temporária do API Gateway
+    Value: !Sub 'https://${TodoHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}'
+  ApiId:
+    Description: Identificador da HTTP API
+    Value: !Ref TodoHttpApi
+  FunctionName:
+    Description: Nome da função Lambda
+    Value: !Ref TodoApiFunction
+  TableName:
+    Description: Nome da tabela DynamoDB
+    Value: !Ref TodosTable
+  ApiAccessLogGroupName:
+    Description: Log group de acesso da API
+    Value: !Ref ApiAccessLogGroup
+  FunctionLogGroupName:
+    Description: Log group da Lambda
+    Value: !Ref FunctionLogGroup

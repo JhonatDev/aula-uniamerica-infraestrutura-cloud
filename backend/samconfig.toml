@@ -1,0 +1,20 @@
+version = 0.1
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+stack_name = "uniamerica-backend-dev"
+resolve_s3 = true
+s3_prefix = "uniamerica-backend-dev"
+region = "us-east-1"
+profile = "uniamerica-deployer"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = "AllowedOrigin=\"http://localhost:3000\" EnvironmentName=\"dev\""
+tags = "Project=\"uniamerica\" Environment=\"dev\""
+
+[default.validate.parameters]
+lint = true
