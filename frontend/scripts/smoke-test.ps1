@@ -7,7 +7,7 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$SecondaryBucket,
   [ValidatePattern('^https://[^/]+$')]
-  [string]$ApiUrl = 'https://nlpabqd73c.execute-api.sa-east-1.amazonaws.com',
+  [string]$ApiUrl = 'https://api.jhonatanamigos.site',
   [string]$Region = 'sa-east-1'
 )
 

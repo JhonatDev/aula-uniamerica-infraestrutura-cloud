@@ -1,8 +1,8 @@
 param(
-  [string]$FrontendUrl = 'https://d7f24mswvc1ee.cloudfront.net',
+  [string]$FrontendUrl = 'https://todo.jhonatanamigos.site',
   [string]$DistributionId = 'E3ZD17QF6K5UP',
   [string]$ApiId = 'nlpabqd73c',
-  [string]$ApiUrl = 'https://nlpabqd73c.execute-api.sa-east-1.amazonaws.com',
+  [string]$ApiUrl = 'https://api.jhonatanamigos.site',
   [string]$FrontendStack = 'uniamerica-frontend-dev',
   [string]$BackendStack = 'uniamerica-backend-dev',
   [string]$FunctionName = 'uniamerica-backend-dev-api',
@@ -71,6 +71,11 @@ Add-Result 'CloudFront implantado' $(if ($distribution.Status -eq 'Deployed' -an
 Add-Result 'CloudFront duas origens' $(if ($distributionConfig.Origins.Quantity -eq 2 -and $distributionConfig.OriginGroups.Quantity -eq 1) { 'PASS' } else { 'FAIL' }) "origins=$($distributionConfig.Origins.Quantity), groups=$($distributionConfig.OriginGroups.Quantity)"
 Add-Result 'CloudFront OAC' $(if (@($distributionConfig.Origins.Items | Where-Object { -not $_.OriginAccessControlId }).Count -eq 0) { 'PASS' } else { 'FAIL' }) 'Todas as origens devem usar OAC.'
 Add-Result 'CloudFront redireciona para HTTPS' $(if ($distributionConfig.DefaultCacheBehavior.ViewerProtocolPolicy -eq 'redirect-to-https') { 'PASS' } else { 'FAIL' }) $distributionConfig.DefaultCacheBehavior.ViewerProtocolPolicy
+$frontendHost = ([Uri]$FrontendUrl).DnsSafeHost
+$distributionAliases = @($distributionConfig.Aliases.Items)
+Add-Result 'CloudFront dominio personalizado' $(if ($distributionAliases -contains $frontendHost) { 'PASS' } else { 'FAIL' }) ($distributionAliases -join ', ')
+$customViewerCertificate = -not $distributionConfig.ViewerCertificate.CloudFrontDefaultCertificate -and [bool]$distributionConfig.ViewerCertificate.ACMCertificateArn
+Add-Result 'CloudFront certificado ACM personalizado' $(if ($customViewerCertificate) { 'PASS' } else { 'FAIL' }) $distributionConfig.ViewerCertificate.ACMCertificateArn
 
 $frontendResponse = Invoke-WebRequest -Uri $FrontendUrl
 $headers = $frontendResponse.Headers
@@ -82,7 +87,12 @@ $api = Invoke-AwsJson @('apigatewayv2', 'get-api', '--api-id', $ApiId)
 $origins = @($api.CorsConfiguration.AllowOrigins)
 Add-Result 'API CORS sem wildcard' $(if ($origins -notcontains '*') { 'PASS' } else { 'FAIL' }) ($origins -join ', ')
 Add-Result 'API permite o CloudFront' $(if ($origins -contains $FrontendUrl) { 'PASS' } else { 'FAIL' }) ($origins -join ', ')
-Add-Result 'API endpoint padrao desabilitado' $(if ($api.DisableExecuteApiEndpoint) { 'PASS' } else { 'WARN' }) 'Pendente do dominio personalizado na Task 5.'
+Add-Result 'API endpoint padrao desabilitado' $(if ($api.DisableExecuteApiEndpoint) { 'PASS' } else { 'FAIL' }) "DisableExecuteApiEndpoint=$($api.DisableExecuteApiEndpoint)"
+$apiHost = ([Uri]$ApiUrl).DnsSafeHost
+$apiDomain = Invoke-AwsJson @('apigatewayv2', 'get-domain-name', '--domain-name', $apiHost)
+$apiMappings = (Invoke-AwsJson @('apigatewayv2', 'get-api-mappings', '--domain-name', $apiHost)).Items
+$apiMapped = @($apiMappings | Where-Object ApiId -eq $ApiId).Count -gt 0
+Add-Result 'API dominio personalizado' $(if ($apiDomain.DomainName -eq $apiHost -and $apiMapped) { 'PASS' } else { 'FAIL' }) "domain=$($apiDomain.DomainName), mapped=$apiMapped"
 
 $stage = Invoke-AwsJson @('apigatewayv2', 'get-stage', '--api-id', $ApiId, '--stage-name', '$default')
 $throttled = $stage.DefaultRouteSettings.ThrottlingRateLimit -gt 0 -and $stage.DefaultRouteSettings.ThrottlingBurstLimit -gt 0

@@ -1,6 +1,8 @@
 param(
   [ValidatePattern('^https://[^/]+$')]
-  [string]$ApiUrl = 'https://nlpabqd73c.execute-api.sa-east-1.amazonaws.com',
+  [string]$ApiUrl = 'https://api.jhonatanamigos.site',
+  [string]$CustomDomainName = 'todo.jhonatanamigos.site',
+  [string]$CertificateArn = 'arn:aws:acm:us-east-1:664106870581:certificate/a68a7537-f939-4c94-aed2-b6b218aeb230',
   [string]$StackName = 'uniamerica-frontend-dev',
   [string]$Region = 'sa-east-1',
   [string]$Profile = 'uniamerica-deployer'
@@ -49,7 +51,7 @@ try {
 aws cloudformation deploy `
   --template-file $templatePath `
   --stack-name $StackName `
-  --parameter-overrides "EnvironmentName=dev" "ApiOrigin=$ApiUrl" `
+  --parameter-overrides "EnvironmentName=dev" "ApiOrigin=$ApiUrl" "CustomDomainName=$CustomDomainName" "CertificateArn=$CertificateArn" `
   --tags "Project=uniamerica" "Environment=dev" `
   --no-fail-on-empty-changeset `
   --profile $Profile `

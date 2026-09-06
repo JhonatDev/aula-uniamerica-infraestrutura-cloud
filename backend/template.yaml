@@ -14,6 +14,23 @@ Parameters:
     AllowedValues:
       - dev
       - prod
+  CustomDomainName:
+    Type: String
+    Description: Dominio personalizado HTTPS da API
+    Default: api.jhonatanamigos.site
+  CertificateArn:
+    Type: String
+    Description: ARN do certificado ACM do dominio da API na mesma regiao do API Gateway
+  DisableExecuteApiEndpoint:
+    Type: String
+    Description: Desativa o endpoint padrao execute-api depois da validacao do dominio personalizado
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+
+Conditions:
+  ShouldDisableExecuteApiEndpoint: !Equals [!Ref DisableExecuteApiEndpoint, 'true']
 
 Globals:
   Function:
@@ -60,7 +77,7 @@ Resources:
     Properties:
       Name: !Sub '${AWS::StackName}-http-api'
       Description: API HTTP serverless do To-Do App
-      DisableExecuteApiEndpoint: false
+      DisableExecuteApiEndpoint: !If [ShouldDisableExecuteApiEndpoint, true, false]
       AccessLogSettings:
         DestinationArn: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/apigateway/${AWS::StackName}'
         Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","routeKey":"$context.routeKey","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
@@ -82,6 +99,27 @@ Resources:
       Tags:
         Project: uniamerica
         Environment: !Ref EnvironmentName
+
+  ApiCustomDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Ref CustomDomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref CertificateArn
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+      Tags:
+        Project: uniamerica
+        Environment: !Ref EnvironmentName
+
+  ApiCustomDomainMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    DependsOn:
+      - TodoHttpApiApiGatewayDefaultStage
+    Properties:
+      ApiId: !Ref TodoHttpApi
+      DomainName: !Ref ApiCustomDomain
+      Stage: '$default'
 
   TodoApiFunction:
     Type: AWS::Serverless::Function
@@ -130,11 +168,23 @@ Resources:
 
 Outputs:
   ApiUrl:
-    Description: URL HTTPS temporária do API Gateway
+    Description: URL HTTPS definitiva da API
+    Value: !Sub 'https://${CustomDomainName}'
+  TemporaryApiUrl:
+    Description: URL HTTPS temporaria do API Gateway para a transicao
     Value: !Sub 'https://${TodoHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}'
   ApiId:
     Description: Identificador da HTTP API
     Value: !Ref TodoHttpApi
+  ApiCustomDomainName:
+    Description: Dominio personalizado da API
+    Value: !Ref ApiCustomDomain
+  ApiCustomDomainTarget:
+    Description: Destino regional para o registro CNAME da API
+    Value: !GetAtt ApiCustomDomain.RegionalDomainName
+  ApiCustomDomainHostedZoneId:
+    Description: Hosted zone do destino regional da API
+    Value: !GetAtt ApiCustomDomain.RegionalHostedZoneId
   FunctionName:
     Description: Nome da função Lambda
     Value: !Ref TodoApiFunction

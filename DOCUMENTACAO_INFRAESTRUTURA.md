@@ -28,7 +28,7 @@
 | **AWS API Gateway** | Proxy Reverso do Back-end | Roteia requisições HTTP para o Lambda, lida com autorização e regras de CORS restritas. |
 | **Amazon S3** | Armazenamento Estático do Front-end | Bucket privado para hospedar os arquivos estáticos gerados pelo `npm run build` do React. |
 | **Amazon CloudFront** | CDN & Proxy Reverso do Front-end | Distribui os arquivos do S3 globalmente com HTTPS, OAC e suporte a roteamento SPA (custom error 403/404 -> `/index.html`). |
-| **AWS ACM** | Certificado SSL/TLS Gratuito | Emite certificados HTTPS na região `us-east-1` para uso com o CloudFront e o domínio próprio. |
+| **AWS ACM** | Certificados SSL/TLS | Emite o certificado do CloudFront em `us-east-1` e o certificado da API regional em `sa-east-1`. |
 
 ---
 
@@ -48,7 +48,7 @@ A aplicação utiliza um fluxo de **Proxy Reverso** para garantir que nenhuma UR
 | **Front-end (S3)** | ❌ Bloqueado | **Block Public Access = true**. Acessível exclusivamente pelo CloudFront através de **Origin Access Control (OAC)**. |
 | **Back-end (Lambda)** | ❌ Bloqueado | **Sem Function URL pública**. Invocação restrita ao API Gateway via permissões IAM nativas. |
 | **Banco (DynamoDB)** | ❌ Bloqueado | **Sem endpoint de rede público ou porta aberta**. Acesso requer chamadas de API autenticadas com credenciais IAM (AWS SigV4). |
-| **CORS (API Gateway)** | 🔒 Restrito | Permite apenas a origem autorizada do front-end (`https://todo.seudominio.com`). |
+| **CORS (API Gateway)** | 🔒 Restrito | Permite apenas a origem autorizada do front-end (`https://todo.jhonatanamigos.site`) e o ambiente local de desenvolvimento. |
 
 ---
 
@@ -61,13 +61,18 @@ A aplicação utiliza um fluxo de **Proxy Reverso** para garantir que nenhuma UR
 
 ## 5. Configuração de Domínio, DNS e HTTPS (ACM)
 
-1. **Certificado ACM:** Criado na região `us-east-1` com validação CNAME DNS para `*.seudominio.com`.
-2. **Apontamento CNAME DNS:**
+1. **Certificado do front-end:** emitido no ACM de `us-east-1` para `todo.jhonatanamigos.site`, conforme exigência do CloudFront.
+2. **Certificado da API:** emitido no ACM de `sa-east-1` para `api.jhonatanamigos.site`, na mesma região do API Gateway.
+3. **DNS autoritativo:** mantido na GoDaddy e validado por registros CNAME.
+4. **Apontamentos de tráfego:**
 
 | Tipo | Nome | Valor Destino |
 | :--- | :--- | :--- |
-| CNAME | `todo` | `dxxxxxxx.cloudfront.net` |
-| CNAME | `api` | `xxx.execute-api.sa-east-1.amazonaws.com` |
+| CNAME | `todo` | `d7f24mswvc1ee.cloudfront.net` |
+| CNAME | `api` | `d-u53to2rwpg.execute-api.sa-east-1.amazonaws.com` |
+
+O endpoint padrão `nlpabqd73c.execute-api.sa-east-1.amazonaws.com` foi desativado
+depois da validação do domínio personalizado da API.
 
 ---
 
@@ -81,7 +86,7 @@ flowchart TD
     end
 
     subgraph DNS_CDN_Proxy ["🛡️ Camada 1: DNS, Certificados & Proxy Reverso"]
-        DNS["🌐 DNS (Route 53 / Cloudflare)\n[Host: todo.seudominio.com]"]
+        DNS["🌐 DNS (GoDaddy)\n[Hosts: todo.jhonatanamigos.site e api.jhonatanamigos.site]"]
         ACM["🔒 AWS ACM Certificate\n(SSL/TLS 1.3 - HTTPS us-east-1)"]
         ProxyFront["🔀 Proxy Reverso CDN\n(Amazon CloudFront Distribution)"]
         ProxyBack["🔀 Proxy Reverso API\n(AWS API Gateway HTTP API)"]
@@ -134,8 +139,8 @@ flowchart TD
 
 | Item de Teste | Esperado | Status |
 | :--- | :--- | :---: |
-| **1. Acesso ao front-end pelo domínio** | `curl -I https://todo.seudominio.com` ➔ `HTTP/2 200` | ✅ PASS |
-| **2. Acesso ao back-end pela API** | `curl https://SUA-API-ID.execute-api.../todos` ➔ `[]` | ✅ PASS |
+| **1. Acesso ao front-end pelo domínio** | `curl -I https://todo.jhonatanamigos.site` ➔ `200` | ✅ PASS |
+| **2. Acesso ao back-end pela API** | `curl https://api.jhonatanamigos.site/todos` ➔ `[]` | ✅ PASS |
 | **3. Front-end conversando com back-end** | Criar, concluir e excluir tarefas via UI | ✅ PASS |
 | **4. Back-end conversando com o banco** | Tarefas visíveis no Console DynamoDB (Tabela `Todos`) | ✅ PASS |
 | **5. Bloqueio de acesso direto ao S3** | `curl -I https://SEU-BUCKET.s3.amazonaws.com/index.html` ➔ `403 Forbidden` | ❌ BLOQUEADO |
