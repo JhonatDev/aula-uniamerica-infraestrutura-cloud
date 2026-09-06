@@ -7,8 +7,8 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$SecondaryBucket,
   [ValidatePattern('^https://[^/]+$')]
-  [string]$ApiUrl = 'https://qsobfeveei.execute-api.us-east-1.amazonaws.com',
-  [string]$Region = 'us-east-1'
+  [string]$ApiUrl = 'https://nlpabqd73c.execute-api.sa-east-1.amazonaws.com',
+  [string]$Region = 'sa-east-1'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -24,6 +24,8 @@ $requiredHeaders = @{
   'Strict-Transport-Security' = 'max-age=31536000'
   'X-Content-Type-Options' = 'nosniff'
   'X-Frame-Options' = 'DENY'
+  'Permissions-Policy' = 'camera=(), geolocation=(), microphone=()'
+  'Cross-Origin-Opener-Policy' = 'same-origin'
 }
 
 foreach ($header in $requiredHeaders.GetEnumerator()) {

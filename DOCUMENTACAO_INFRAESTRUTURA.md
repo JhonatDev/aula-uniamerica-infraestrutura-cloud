@@ -55,7 +55,7 @@ A aplicação utiliza um fluxo de **Proxy Reverso** para garantir que nenhuma UR
 ## 4. Redundância e Alta Disponibilidade
 
 - **Front-end Redundante:** O CloudFront distribui o conteúdo estático em mais de **600 Edge Locations** globalmente. A falha de um nó de borda é mitigada com failover transparente para a localização mais próxima.
-- **Resiliência do Back-end:** AWS Lambda e DynamoDB replicam a execução e a persistência em **múltiplas Zonas de Disponibilidade (Multi-AZ)** na região `us-east-1`.
+- **Resiliência do Back-end:** AWS Lambda e DynamoDB replicam a execução e a persistência em **múltiplas Zonas de Disponibilidade (Multi-AZ)** na região de São Paulo (`sa-east-1`). O CloudFront continua sendo um serviço global.
 
 ---
 
@@ -67,7 +67,7 @@ A aplicação utiliza um fluxo de **Proxy Reverso** para garantir que nenhuma UR
 | Tipo | Nome | Valor Destino |
 | :--- | :--- | :--- |
 | CNAME | `todo` | `dxxxxxxx.cloudfront.net` |
-| CNAME | `api` | `xxx.execute-api.us-east-1.amazonaws.com` |
+| CNAME | `api` | `xxx.execute-api.sa-east-1.amazonaws.com` |
 
 ---
 

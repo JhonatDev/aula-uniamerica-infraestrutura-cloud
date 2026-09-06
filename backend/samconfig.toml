@@ -8,12 +8,12 @@ parallel = true
 stack_name = "uniamerica-backend-dev"
 resolve_s3 = true
 s3_prefix = "uniamerica-backend-dev"
-region = "us-east-1"
+region = "sa-east-1"
 profile = "uniamerica-deployer"
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
 fail_on_empty_changeset = false
-parameter_overrides = "AllowedOrigins=\"http://localhost:3000,https://dnup1s3c9bqg8.cloudfront.net\" EnvironmentName=\"dev\""
+parameter_overrides = "AllowedOrigins=\"http://localhost:3000,https://d7f24mswvc1ee.cloudfront.net\" EnvironmentName=\"dev\""
 tags = "Project=\"uniamerica\" Environment=\"dev\""
 
 [default.validate.parameters]

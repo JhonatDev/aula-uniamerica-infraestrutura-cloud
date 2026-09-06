@@ -1,8 +1,8 @@
 # Evidências — Task 3: back-end serverless
 
-Data da validação: 04/09/2026
+Data da validação: 04/09/2026; revalidado após migração em 06/09/2026
 
-Região: `us-east-1`
+Região: São Paulo (`sa-east-1`)
 
 Stack: `uniamerica-backend-dev`
 
@@ -16,7 +16,7 @@ Stack: `uniamerica-backend-dev`
 
 URL temporária da API:
 
-`https://qsobfeveei.execute-api.us-east-1.amazonaws.com`
+`https://nlpabqd73c.execute-api.sa-east-1.amazonaws.com`
 
 O endpoint padrão do API Gateway permanece habilitado somente enquanto o domínio está pendente. Na Task 5 ele deverá ser substituído pelo domínio personalizado e desabilitado.
 
@@ -49,5 +49,5 @@ Resultado do smoke test: `PASS`.
 cd backend
 sam build
 sam deploy
-.\scripts\smoke-test.ps1 -ApiUrl 'https://qsobfeveei.execute-api.us-east-1.amazonaws.com'
+.\scripts\smoke-test.ps1 -ApiUrl 'https://nlpabqd73c.execute-api.sa-east-1.amazonaws.com'
 ```
