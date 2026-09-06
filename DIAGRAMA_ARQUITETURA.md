@@ -8,8 +8,8 @@ flowchart TD
     end
 
     subgraph DNS_CDN_Proxy ["🛡️ Camada 1: DNS, Certificados & Proxy Reverso"]
-        DNS["🌐 DNS (Route 53 / Cloudflare)\n[Host: todo.seudominio.com]"]
-        ACM["🔒 AWS ACM Certificate\n(SSL/TLS 1.3 - HTTPS)"]
+        DNS["🌐 DNS (GoDaddy)\n[Hosts: todo.jhonatanamigos.site e api.jhonatanamigos.site]"]
+        ACM["🔒 AWS ACM Certificates\n(CloudFront: us-east-1 / API: sa-east-1)"]
         ProxyFront["🔀 Proxy Reverso CDN\n(Amazon CloudFront Distribution)"]
         ProxyBack["🔀 Proxy Reverso API\n(AWS API Gateway HTTP API)"]
     end

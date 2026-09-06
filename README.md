@@ -42,10 +42,12 @@ sam deploy
 Após o deploy, utilize o output `ApiUrl` para testar o CRUD real:
 
 ```powershell
-.\scripts\smoke-test.ps1 -ApiUrl 'https://ID.execute-api.sa-east-1.amazonaws.com'
+.\scripts\smoke-test.ps1 -ApiUrl 'https://api.jhonatanamigos.site'
 ```
 
-O endpoint `execute-api` é temporário. Ele será desativado depois que o domínio personalizado da API estiver configurado.
+O domínio definitivo da API é `https://api.jhonatanamigos.site`. O endpoint padrão
+`execute-api` deve permanecer habilitado apenas durante a transição e ser desativado
+depois da validação do DNS personalizado.
 
 ## Deploy do front-end redundante
 
@@ -64,7 +66,9 @@ Os outputs do script podem ser usados para validar HTTPS, cabeçalhos de seguran
   -SecondaryBucket 'BUCKET_SECUNDARIO'
 ```
 
-O domínio padrão do CloudFront é temporário. Na Task 5 ele será associado ao domínio definitivo e a um certificado ACM.
+O domínio definitivo do front-end é `https://todo.jhonatanamigos.site`. O certificado
+do CloudFront fica no ACM de `us-east-1`, conforme exigência do serviço, enquanto os
+buckets e os demais recursos permanecem em São Paulo (`sa-east-1`).
 
 ## Auditoria de segurança
 
@@ -74,4 +78,6 @@ Os controles implantados podem ser verificados novamente com:
 .\scripts\audit-security.ps1
 ```
 
-Enquanto o domínio definitivo estiver pendente, o resultado esperado é `PASS_WITH_WARNINGS`: o endpoint padrão do API Gateway permanece ativo até a Task 5 e os controles opcionais com custo ficam documentados, mas desabilitados.
+Com os domínios definitivos configurados, o endpoint padrão do API Gateway fica
+desativado. O resultado ainda pode ser `PASS_WITH_WARNINGS` quando controles opcionais
+com custo, como recuperação point-in-time, estiverem documentados mas desabilitados.
