@@ -1,17 +1,17 @@
 # Evidências — Task 4: front-end serverless redundante
 
-Data da validação: 05/09/2026
+Data da validação: 05/09/2026; revalidado após migração em 06/09/2026
 
-Região do stack: `us-east-1`
+Região dos buckets e do stack: São Paulo (`sa-east-1`); distribuição CloudFront global
 
 Stack: `uniamerica-frontend-dev`
 
 ## Recursos implantados
 
-- CloudFront: distribuição `E2PJ9V9PC81U9J`, estado `Deployed`.
-- URL temporária: `https://dnup1s3c9bqg8.cloudfront.net`.
-- Origem primária: `uniamerica-frontend-dev-primarybucket-yr3uevmgy1fr`.
-- Origem secundária: `uniamerica-frontend-dev-secondarybucket-gxcwsmznvxvx`.
+- CloudFront: distribuição `E3ZD17QF6K5UP`, estado `Deployed`.
+- URL temporária: `https://d7f24mswvc1ee.cloudfront.net`.
+- Origem primária: `uniamerica-frontend-dev-primarybucket-gnektgyralct`.
+- Origem secundária: `uniamerica-frontend-dev-secondarybucket-tsma7wlhra5h`.
 - Origin Access Control com assinatura SigV4 obrigatória.
 - Cache policy e response headers policy próprias do stack.
 
@@ -45,9 +45,9 @@ Resultado do smoke test: `PASS`.
 .\frontend\scripts\deploy.ps1
 
 .\frontend\scripts\smoke-test.ps1 `
-  -FrontendUrl 'https://dnup1s3c9bqg8.cloudfront.net' `
-  -PrimaryBucket 'uniamerica-frontend-dev-primarybucket-yr3uevmgy1fr' `
-  -SecondaryBucket 'uniamerica-frontend-dev-secondarybucket-gxcwsmznvxvx'
+  -FrontendUrl 'https://d7f24mswvc1ee.cloudfront.net' `
+  -PrimaryBucket 'uniamerica-frontend-dev-primarybucket-gnektgyralct' `
+  -SecondaryBucket 'uniamerica-frontend-dev-secondarybucket-tsma7wlhra5h'
 ```
 
 O domínio `cloudfront.net` é temporário. A Task 5 deverá associar o domínio definitivo, instalar o certificado ACM e atualizar o CORS/CSP.

@@ -1,6 +1,6 @@
 # Evidências — Task 6: aplicação e auditoria de segurança
 
-Data da validação: 05/09/2026
+Data da validação: 06/09/2026
 
 Resultado automatizado: `PASS_WITH_WARNINGS`
 

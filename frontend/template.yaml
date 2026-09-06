@@ -86,7 +86,7 @@ Resources:
     Properties:
       OriginAccessControlConfig:
         Description: Acesso assinado do CloudFront aos buckets privados do front-end
-        Name: !Sub '${AWS::StackName}-oac'
+        Name: !Sub '${AWS::StackName}-${AWS::Region}-oac'
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
@@ -99,7 +99,7 @@ Resources:
         DefaultTTL: 300
         MaxTTL: 31536000
         MinTTL: 0
-        Name: !Sub '${AWS::StackName}-cache'
+        Name: !Sub '${AWS::StackName}-${AWS::Region}-cache'
         ParametersInCacheKeyAndForwardedToOrigin:
           CookiesConfig:
             CookieBehavior: none
@@ -123,7 +123,7 @@ Resources:
             - Header: Cross-Origin-Opener-Policy
               Override: true
               Value: same-origin
-        Name: !Sub '${AWS::StackName}-security-headers'
+        Name: !Sub '${AWS::StackName}-${AWS::Region}-security-headers'
         SecurityHeadersConfig:
           ContentSecurityPolicy:
             ContentSecurityPolicy: !Sub "default-src 'self'; connect-src 'self' ${ApiOrigin}; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"

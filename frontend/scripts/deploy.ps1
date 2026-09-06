@@ -1,8 +1,8 @@
 param(
   [ValidatePattern('^https://[^/]+$')]
-  [string]$ApiUrl = 'https://qsobfeveei.execute-api.us-east-1.amazonaws.com',
+  [string]$ApiUrl = 'https://nlpabqd73c.execute-api.sa-east-1.amazonaws.com',
   [string]$StackName = 'uniamerica-frontend-dev',
-  [string]$Region = 'us-east-1',
+  [string]$Region = 'sa-east-1',
   [string]$Profile = 'uniamerica-deployer'
 )
 

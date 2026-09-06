@@ -1,16 +1,16 @@
 param(
-  [string]$FrontendUrl = 'https://dnup1s3c9bqg8.cloudfront.net',
-  [string]$DistributionId = 'E2PJ9V9PC81U9J',
-  [string]$ApiId = 'qsobfeveei',
-  [string]$ApiUrl = 'https://qsobfeveei.execute-api.us-east-1.amazonaws.com',
+  [string]$FrontendUrl = 'https://d7f24mswvc1ee.cloudfront.net',
+  [string]$DistributionId = 'E3ZD17QF6K5UP',
+  [string]$ApiId = 'nlpabqd73c',
+  [string]$ApiUrl = 'https://nlpabqd73c.execute-api.sa-east-1.amazonaws.com',
   [string]$FrontendStack = 'uniamerica-frontend-dev',
   [string]$BackendStack = 'uniamerica-backend-dev',
   [string]$FunctionName = 'uniamerica-backend-dev-api',
   [string]$TableName = 'uniamerica-backend-dev-todos',
-  [string]$PrimaryBucket = 'uniamerica-frontend-dev-primarybucket-yr3uevmgy1fr',
-  [string]$SecondaryBucket = 'uniamerica-frontend-dev-secondarybucket-gxcwsmznvxvx',
+  [string]$PrimaryBucket = 'uniamerica-frontend-dev-primarybucket-gnektgyralct',
+  [string]$SecondaryBucket = 'uniamerica-frontend-dev-secondarybucket-tsma7wlhra5h',
   [string]$Profile = 'uniamerica-deployer',
-  [string]$Region = 'us-east-1'
+  [string]$Region = 'sa-east-1'
 )
 
 $ErrorActionPreference = 'Stop'

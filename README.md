@@ -31,7 +31,7 @@ sam validate --lint --template-file backend/template.yaml
 
 ## Deploy do back-end
 
-O deploy de desenvolvimento utiliza o perfil AWS `uniamerica-deployer` e a região `us-east-1`:
+O deploy de desenvolvimento utiliza o perfil AWS `uniamerica-deployer` e a região de São Paulo (`sa-east-1`):
 
 ```powershell
 cd backend
@@ -42,7 +42,7 @@ sam deploy
 Após o deploy, utilize o output `ApiUrl` para testar o CRUD real:
 
 ```powershell
-.\scripts\smoke-test.ps1 -ApiUrl 'https://ID.execute-api.us-east-1.amazonaws.com'
+.\scripts\smoke-test.ps1 -ApiUrl 'https://ID.execute-api.sa-east-1.amazonaws.com'
 ```
 
 O endpoint `execute-api` é temporário. Ele será desativado depois que o domínio personalizado da API estiver configurado.
