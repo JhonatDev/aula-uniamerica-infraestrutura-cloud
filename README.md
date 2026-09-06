@@ -65,3 +65,13 @@ Os outputs do script podem ser usados para validar HTTPS, cabeçalhos de seguran
 ```
 
 O domínio padrão do CloudFront é temporário. Na Task 5 ele será associado ao domínio definitivo e a um certificado ACM.
+
+## Auditoria de segurança
+
+Os controles implantados podem ser verificados novamente com:
+
+```powershell
+.\scripts\audit-security.ps1
+```
+
+Enquanto o domínio definitivo estiver pendente, o resultado esperado é `PASS_WITH_WARNINGS`: o endpoint padrão do API Gateway permanece ativo até a Task 5 e os controles opcionais com custo ficam documentados, mas desabilitados.

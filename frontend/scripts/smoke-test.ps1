@@ -24,6 +24,8 @@ $requiredHeaders = @{
   'Strict-Transport-Security' = 'max-age=31536000'
   'X-Content-Type-Options' = 'nosniff'
   'X-Frame-Options' = 'DENY'
+  'Permissions-Policy' = 'camera=(), geolocation=(), microphone=()'
+  'Cross-Origin-Opener-Policy' = 'same-origin'
 }
 
 foreach ($header in $requiredHeaders.GetEnumerator()) {

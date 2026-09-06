@@ -115,6 +115,14 @@ Resources:
     Properties:
       ResponseHeadersPolicyConfig:
         Comment: Cabecalhos de seguranca do front-end React
+        CustomHeadersConfig:
+          Items:
+            - Header: Permissions-Policy
+              Override: true
+              Value: camera=(), geolocation=(), microphone=()
+            - Header: Cross-Origin-Opener-Policy
+              Override: true
+              Value: same-origin
         Name: !Sub '${AWS::StackName}-security-headers'
         SecurityHeadersConfig:
           ContentSecurityPolicy:
@@ -214,6 +222,16 @@ Resources:
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt PrimaryBucket.Arn
+              - !Sub '${PrimaryBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: false
           - Sid: AllowCloudFrontReadOnly
             Effect: Allow
             Principal:
@@ -231,6 +249,16 @@ Resources:
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt SecondaryBucket.Arn
+              - !Sub '${SecondaryBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: false
           - Sid: AllowCloudFrontReadOnly
             Effect: Allow
             Principal:

@@ -12,6 +12,7 @@ $templatePath = Join-Path $frontendDir 'template.yaml'
 $buildDir = Join-Path $frontendDir 'build'
 $probePath = Join-Path $frontendDir 'failover-probe.txt'
 $previousApiUrl = $env:REACT_APP_API_URL
+$previousSourceMap = $env:GENERATE_SOURCEMAP
 
 function Assert-LastCommand([string]$Message) {
   if ($LASTEXITCODE -ne 0) {
@@ -26,6 +27,7 @@ function Get-StackOutput($Stack, [string]$Key) {
 try {
   Push-Location $frontendDir
   $env:REACT_APP_API_URL = $ApiUrl
+  $env:GENERATE_SOURCEMAP = 'false'
   npm ci
   Assert-LastCommand 'Falha ao instalar as dependencias do front-end.'
   npm run build
@@ -36,6 +38,11 @@ try {
     Remove-Item Env:REACT_APP_API_URL -ErrorAction SilentlyContinue
   } else {
     $env:REACT_APP_API_URL = $previousApiUrl
+  }
+  if ($null -eq $previousSourceMap) {
+    Remove-Item Env:GENERATE_SOURCEMAP -ErrorAction SilentlyContinue
+  } else {
+    $env:GENERATE_SOURCEMAP = $previousSourceMap
   }
 }
 
