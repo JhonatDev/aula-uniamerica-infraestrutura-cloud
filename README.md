@@ -2,9 +2,14 @@
 
 Aplicação React e Express utilizada como base para uma arquitetura serverless na AWS.
 
+## Entrega da atividade
+
+Os três itens finais solicitados estão reunidos em [`ENTREGA.md`](ENTREGA.md):
+infraestrutura funcionando, diagrama técnico e documentação curta.
+
 ## Ambientes
 
-- **Produção:** front-end estático, AWS Lambda, API Gateway e DynamoDB. A infraestrutura cloud será declarada e implantada nas próximas etapas do projeto.
+- **Cloud implantada:** front-end estático em CloudFront/S3, AWS Lambda, API Gateway e DynamoDB, com infraestrutura declarada em CloudFormation/SAM.
 - **Desenvolvimento:** o front-end usa `REACT_APP_API_URL` para localizar a API. Copie `frontend/.env.example` para `frontend/.env` quando precisar alterar a URL local.
 - **Docker legado:** os arquivos Docker/MongoDB existentes pertencem à versão anterior da aplicação. Eles não representam a arquitetura de produção atual, que utiliza DynamoDB.
 
@@ -46,8 +51,7 @@ Após o deploy, utilize o output `ApiUrl` para testar o CRUD real:
 ```
 
 O domínio definitivo da API é `https://api.jhonatanamigos.site`. O endpoint padrão
-`execute-api` deve permanecer habilitado apenas durante a transição e ser desativado
-depois da validação do DNS personalizado.
+`execute-api` está desativado após a validação do DNS personalizado.
 
 ## Deploy do front-end redundante
 
