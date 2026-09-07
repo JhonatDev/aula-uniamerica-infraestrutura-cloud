@@ -1,0 +1,20 @@
+version = 0.1
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+stack_name = "uniamerica-backend-dev"
+resolve_s3 = true
+s3_prefix = "uniamerica-backend-dev"
+region = "sa-east-1"
+profile = "uniamerica-deployer"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = "AllowedOrigins=\"http://localhost:3000,https://todo.jhonatanamigos.site\" EnvironmentName=\"dev\" CustomDomainName=\"api.jhonatanamigos.site\" CertificateArn=\"arn:aws:acm:sa-east-1:664106870581:certificate/457490e9-a329-4441-937d-fc1f44a0c173\" DisableExecuteApiEndpoint=\"true\""
+tags = "Project=\"uniamerica\" Environment=\"dev\""
+
+[default.validate.parameters]
+lint = true

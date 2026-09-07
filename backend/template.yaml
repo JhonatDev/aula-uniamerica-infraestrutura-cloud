@@ -2,17 +2,52 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Back-end serverless do To-Do App
 
+Parameters:
+  AllowedOrigins:
+    Type: CommaDelimitedList
+    Description: Origens autorizadas a consumir a API pelo navegador
+    Default: http://localhost:3000
+  EnvironmentName:
+    Type: String
+    Description: Ambiente associado aos recursos
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+  CustomDomainName:
+    Type: String
+    Description: Dominio personalizado HTTPS da API
+    Default: api.jhonatanamigos.site
+  CertificateArn:
+    Type: String
+    Description: ARN do certificado ACM do dominio da API na mesma regiao do API Gateway
+  DisableExecuteApiEndpoint:
+    Type: String
+    Description: Desativa o endpoint padrao execute-api depois da validacao do dominio personalizado
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+
+Conditions:
+  ShouldDisableExecuteApiEndpoint: !Equals [!Ref DisableExecuteApiEndpoint, 'true']
+
 Globals:
   Function:
     Timeout: 10
-    Runtime: nodejs20.x
+    Runtime: nodejs24.x
     MemorySize: 128
+    Architectures:
+      - x86_64
+    Tags:
+      Project: uniamerica
+      Environment: !Ref EnvironmentName
 
 Resources:
   TodosTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: Todos
+      TableName: !Sub '${AWS::StackName}-todos'
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: id
@@ -20,41 +55,145 @@ Resources:
       KeySchema:
         - AttributeName: id
           KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: uniamerica
+        - Key: Environment
+          Value: !Ref EnvironmentName
 
-  ServerlessHttpApi:
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${AWS::StackName}'
+      RetentionInDays: 7
+      Tags:
+        - Key: Project
+          Value: uniamerica
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  TodoHttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
+      Name: !Sub '${AWS::StackName}-http-api'
+      Description: API HTTP serverless do To-Do App
+      DisableExecuteApiEndpoint: !If [ShouldDisableExecuteApiEndpoint, true, false]
+      AccessLogSettings:
+        DestinationArn: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/apigateway/${AWS::StackName}'
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","routeKey":"$context.routeKey","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
+      DefaultRouteSettings:
+        DetailedMetricsEnabled: false
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
       CorsConfiguration:
-        AllowOrigins:
-          - "*"
+        AllowOrigins: !Ref AllowedOrigins
         AllowMethods:
           - GET
           - POST
           - PATCH
           - DELETE
+          - OPTIONS
         AllowHeaders:
           - Content-Type
+        MaxAge: 600
+      Tags:
+        Project: uniamerica
+        Environment: !Ref EnvironmentName
+
+  ApiCustomDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Ref CustomDomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref CertificateArn
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+      Tags:
+        Project: uniamerica
+        Environment: !Ref EnvironmentName
+
+  ApiCustomDomainMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    DependsOn:
+      - TodoHttpApiApiGatewayDefaultStage
+    Properties:
+      ApiId: !Ref TodoHttpApi
+      DomainName: !Ref ApiCustomDomain
+      Stage: '$default'
 
   TodoApiFunction:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: !Sub '${AWS::StackName}-api'
+      Description: API Express executada em AWS Lambda
       Handler: lambda.handler
       CodeUri: ./
+      LoggingConfig:
+        LogFormat: JSON
+        ApplicationLogLevel: INFO
+        SystemLogLevel: INFO
       Environment:
         Variables:
           DYNAMODB_TABLE_NAME: !Ref TodosTable
+          CORS_ALLOWED_ORIGINS: !Join [',', !Ref AllowedOrigins]
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref TodosTable
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: TodoTableCrud
+              Effect: Allow
+              Action:
+                - dynamodb:Scan
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt TodosTable.Arn
       Events:
         ApiEvent:
           Type: HttpApi
           Properties:
             Path: /{proxy+}
             Method: ANY
-            ApiId: !Ref ServerlessHttpApi
+            ApiId: !Ref TodoHttpApi
+
+  FunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${TodoApiFunction}'
+      RetentionInDays: 7
+      Tags:
+        - Key: Project
+          Value: uniamerica
+        - Key: Environment
+          Value: !Ref EnvironmentName
 
 Outputs:
   ApiUrl:
-    Description: URL do API Gateway
-    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+    Description: URL HTTPS definitiva da API
+    Value: !Sub 'https://${CustomDomainName}'
+  TemporaryApiUrl:
+    Description: URL HTTPS temporaria do API Gateway para a transicao
+    Value: !Sub 'https://${TodoHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}'
+  ApiId:
+    Description: Identificador da HTTP API
+    Value: !Ref TodoHttpApi
+  ApiCustomDomainName:
+    Description: Dominio personalizado da API
+    Value: !Ref ApiCustomDomain
+  ApiCustomDomainTarget:
+    Description: Destino regional para o registro CNAME da API
+    Value: !GetAtt ApiCustomDomain.RegionalDomainName
+  ApiCustomDomainHostedZoneId:
+    Description: Hosted zone do destino regional da API
+    Value: !GetAtt ApiCustomDomain.RegionalHostedZoneId
+  FunctionName:
+    Description: Nome da função Lambda
+    Value: !Ref TodoApiFunction
+  TableName:
+    Description: Nome da tabela DynamoDB
+    Value: !Ref TodosTable
+  ApiAccessLogGroupName:
+    Description: Log group de acesso da API
+    Value: !Ref ApiAccessLogGroup
+  FunctionLogGroupName:
+    Description: Log group da Lambda
+    Value: !Ref FunctionLogGroup

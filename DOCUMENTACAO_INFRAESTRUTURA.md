@@ -1,162 +1,120 @@
-# 🚀 Documentação Técnica de Infraestrutura AWS Serverless
+# Documentação curta — infraestrutura serverless
 
-**Projeto:** To-Do App (React + AWS Lambda + AWS DynamoDB)  
-**Repositório:** [aula-uniamerica-infraestrutura-cloud](https://github.com/JhonatDev/aula-uniamerica-infraestrutura-cloud.git)  
-**Disciplina:** Infraestrutura Cloud  
-**Arquitetura:** 100% AWS Serverless (100% Free Tier - Custo Zero)  
+**Projeto:** To-Do App
 
----
+**Grupo:** Jhonatan & Amigos
 
-## 📑 Sumário
-1. [Visão Geral dos Serviços e Motivação](#1-visão-geral-dos-serviços-e-motivação)
-2. [Arquitetura e Proxy Reverso](#2-arquitetura-e-proxy-reverso)
-3. [Segurança e Modelo Zero Trust](#3-segurança-e-modelo-zero-trust)
-4. [Redundância e Alta Disponibilidade](#4-redundância-e-alta-disponibilidade)
-5. [Configuração de Domínio, DNS e HTTPS (ACM)](#5-configuração-de-domínio-dns-e-https-acm)
-6. [Diagrama Técnico de Arquitetura](#6-diagrama-técnico-de-arquitetura)
-7. [Checklist de Testes e Evidências](#7-checklist-de-testes-e-evidências)
-8. [Instruções de Manutenção e Redeploy](#8-instruções-de-manutenção-e-redeploy)
+**Região principal:** São Paulo (`sa-east-1`)
 
----
+**Front-end:** <https://todo.jhonatanamigos.site>
 
-## 1. Visão Geral dos Serviços e Motivação
+**API:** <https://api.jhonatanamigos.site>
 
-| Serviço AWS | Função na Arquitetura | Motivo da Escolha |
-| :--- | :--- | :--- |
-| **AWS DynamoDB** | Banco de Dados NoSQL Gerenciado | Escala a zero automaticamente (`PAY_PER_REQUEST`). Elimina custos de instâncias fixas e VPC NAT Gateway. |
-| **AWS Lambda** | Back-end Serverless (Express App) | Executa o código Node.js em resposta a eventos sem necessidade de servidores EC2 ligados 24/7. |
-| **AWS API Gateway** | Proxy Reverso do Back-end | Roteia requisições HTTP para o Lambda, lida com autorização e regras de CORS restritas. |
-| **Amazon S3** | Armazenamento Estático do Front-end | Bucket privado para hospedar os arquivos estáticos gerados pelo `npm run build` do React. |
-| **Amazon CloudFront** | CDN & Proxy Reverso do Front-end | Distribui os arquivos do S3 globalmente com HTTPS, OAC e suporte a roteamento SPA (custom error 403/404 -> `/index.html`). |
-| **AWS ACM** | Certificado SSL/TLS Gratuito | Emite certificados HTTPS na região `us-east-1` para uso com o CloudFront e o domínio próprio. |
+## Serviços utilizados e motivos
 
----
+| Serviço | Uso | Motivo da escolha |
+| --- | --- | --- |
+| Amazon CloudFront | CDN e proxy reverso do front-end | Entrega global por HTTPS, cache, distribuição de acesso e failover entre origens |
+| Amazon S3 | Duas origens privadas do build React | Hospedagem estática serverless, durável e sem servidor exposto |
+| Amazon API Gateway HTTP API | Domínio e proxy reverso do back-end | Único ponto público da API, com HTTPS, CORS, limites de taxa e encaminhamento à Lambda |
+| AWS Lambda | Execução do back-end Express | Computação serverless sob demanda, sem EC2 ou servidor permanente |
+| Amazon DynamoDB | Banco de dados da aplicação | Banco gerenciado/serverless com cobrança sob demanda |
+| AWS Certificate Manager | Certificados TLS | HTTPS nos dois domínios com renovação automática enquanto os registros de validação forem preservados |
+| Amazon CloudWatch | Logs da API e da função | Evidência, diagnóstico e retenção controlada por 7 dias |
+| AWS CloudFormation/SAM | Infraestrutura como código | Implantação reproduzível e auditoria de mudanças |
 
-## 2. Arquitetura e Proxy Reverso
+## Funcionamento e proxy reverso
 
-A aplicação utiliza um fluxo de **Proxy Reverso** para garantir que nenhuma URL crua do provedor seja exposta:
+No front-end, o usuário acessa `todo.jhonatanamigos.site`. A GoDaddy resolve o
+registro para o CloudFront, que recebe a conexão HTTPS e encaminha a requisição ao
+grupo de origens S3 privadas. Assim, o endereço S3 não é apresentado ao usuário.
 
-- **Front-end:** `Usuário` ➔ `DNS (CNAME todo)` ➔ `CloudFront (Proxy Reverso CDN)` ➔ `S3 (Privado via OAC)`
-- **Back-end:** `Front-end` ➔ `DNS (CNAME api)` ➔ `API Gateway (Proxy Reverso)` ➔ `Lambda` ➔ `DynamoDB`
+No back-end, o React chama `api.jhonatanamigos.site`. O DNS resolve esse nome para
+o domínio regional do API Gateway. O API Gateway atua como proxy reverso e invoca
+a Lambda; a função usa o AWS SDK para acessar somente a tabela DynamoDB do projeto.
+A Lambda não possui Function URL e o endpoint padrão `execute-api` está desativado.
 
----
+Esta arquitetura não possui um servidor EC2 ligado continuamente. CloudFront, S3,
+API Gateway, Lambda e DynamoDB são serviços gerenciados/serverless; a Lambda é
+acionada sob demanda quando chega uma requisição à API.
 
-## 3. Segurança e Modelo Zero Trust
+## Segurança
 
-| Regra / Componente | Estado Público | Mecanismo de Proteção |
-| :--- | :---: | :--- |
-| **Front-end (S3)** | ❌ Bloqueado | **Block Public Access = true**. Acessível exclusivamente pelo CloudFront através de **Origin Access Control (OAC)**. |
-| **Back-end (Lambda)** | ❌ Bloqueado | **Sem Function URL pública**. Invocação restrita ao API Gateway via permissões IAM nativas. |
-| **Banco (DynamoDB)** | ❌ Bloqueado | **Sem endpoint de rede público ou porta aberta**. Acesso requer chamadas de API autenticadas com credenciais IAM (AWS SigV4). |
-| **CORS (API Gateway)** | 🔒 Restrito | Permite apenas a origem autorizada do front-end (`https://todo.seudominio.com`). |
+- Todo tráfego público permitido utiliza HTTPS na porta 443.
+- Os dois buckets usam Block Public Access, criptografia SSE-S3, versionamento e
+  Origin Access Control. Somente a distribuição CloudFront pode ler os objetos.
+- O front-end envia uma Content Security Policy que permite conexão apenas com a
+  API definitiva, além da própria origem.
+- O CORS da API permite `https://todo.jhonatanamigos.site` e o endereço local usado
+  no desenvolvimento; não existe origem wildcard.
+- O API Gateway limita a taxa padrão a 10 requisições por segundo, com burst 20.
+- A Lambda não tem endpoint público próprio e sua role contém somente as quatro
+  ações DynamoDB usadas pelo CRUD na tabela do projeto.
+- O DynamoDB não aceita acesso anônimo; as operações exigem IAM e assinatura
+  SigV4. A criptografia em repouso é mantida pelo serviço.
+- A conta root possui MFA por passkey e não possui access keys.
 
----
+Em resumo, são permitidos apenas os fluxos navegador→CloudFront,
+CloudFront→S3, navegador/front-end→API Gateway, API Gateway→Lambda e
+Lambda→DynamoDB. Acesso público direto a S3, Lambda e DynamoDB é bloqueado.
 
-## 4. Redundância e Alta Disponibilidade
+## Redundância do front-end
 
-- **Front-end Redundante:** O CloudFront distribui o conteúdo estático em mais de **600 Edge Locations** globalmente. A falha de um nó de borda é mitigada com failover transparente para a localização mais próxima.
-- **Resiliência do Back-end:** AWS Lambda e DynamoDB replicam a execução e a persistência em **múltiplas Zonas de Disponibilidade (Multi-AZ)** na região `us-east-1`.
+O mesmo build React fica em dois buckets S3 privados, ambos na região de São
+Paulo. Eles compõem um grupo de origens do CloudFront. A origem primária é usada
+normalmente; para respostas `403`, `404`, `500`, `502`, `503` ou `504`, o
+CloudFront tenta automaticamente a origem secundária. Além disso, o próprio
+CloudFront distribui as requisições por sua rede global de pontos de presença.
 
----
+O failover foi comprovado com um arquivo existente somente no bucket secundário:
+a requisição feita pelo CloudFront retornou `200` e `secondary-origin-ok`.
 
-## 5. Configuração de Domínio, DNS e HTTPS (ACM)
+## Domínio, DNS e certificados
 
-1. **Certificado ACM:** Criado na região `us-east-1` com validação CNAME DNS para `*.seudominio.com`.
-2. **Apontamento CNAME DNS:**
+A zona DNS continua administrada na GoDaddy. Foram configurados:
 
-| Tipo | Nome | Valor Destino |
-| :--- | :--- | :--- |
-| CNAME | `todo` | `dxxxxxxx.cloudfront.net` |
-| CNAME | `api` | `xxx.execute-api.us-east-1.amazonaws.com` |
+| Nome | Tipo | Destino |
+| --- | --- | --- |
+| `todo.jhonatanamigos.site` | CNAME | `d7f24mswvc1ee.cloudfront.net` |
+| `api.jhonatanamigos.site` | CNAME | `d-u53to2rwpg.execute-api.sa-east-1.amazonaws.com` |
 
----
+O certificado do front-end está `ISSUED` no ACM de `us-east-1`, localização
+obrigatória para certificados associados ao CloudFront. O certificado da API está
+`ISSUED` em `sa-east-1`, a mesma região do API Gateway. Os demais recursos da
+aplicação permanecem em São Paulo.
 
-## 6. Diagrama Técnico de Arquitetura
+O prefixo `todo` foi escolhido para identificar claramente o front-end e evitar
+substituir o site provisório configurado no domínio raiz. O enunciado aceita domínio
+ou subdomínio próprio, portanto esse endereço atende ao requisito. O prefixo não
+indica branch Git ou ambiente de desenvolvimento.
 
-```mermaid
-flowchart TD
-    subgraph Internet ["🌐 Internet Pública"]
-        User["👤 Usuário Final (Navegador)"]
-        Attacker["⚠️ Atacante / Acesso Direto Rejeitado"]
-    end
+## Testes e resultado
 
-    subgraph DNS_CDN_Proxy ["🛡️ Camada 1: DNS, Certificados & Proxy Reverso"]
-        DNS["🌐 DNS (Route 53 / Cloudflare)\n[Host: todo.seudominio.com]"]
-        ACM["🔒 AWS ACM Certificate\n(SSL/TLS 1.3 - HTTPS us-east-1)"]
-        ProxyFront["🔀 Proxy Reverso CDN\n(Amazon CloudFront Distribution)"]
-        ProxyBack["🔀 Proxy Reverso API\n(AWS API Gateway HTTP API)"]
-    end
+Os sete testes pedidos no enunciado foram executados:
 
-    subgraph Frontend_Redundancy ["⚡ Camada 2: Front-end Redundante (Serverless CDN)"]
-        POP1["📍 CloudFront Edge Location (São Paulo)"]
-        POP2["📍 CloudFront Edge Location (Virginia - Failover)"]
-        S3Bucket["📦 Amazon S3 Bucket Privado (React Build)\n[Acesso direto via URL S3: BLOQUEADO ❌]"]
-    end
+1. front-end pelo domínio próprio: `PASS` (`200`);
+2. API pelo domínio próprio: `PASS` (`200`);
+3. front-end acessando o back-end: `PASS`;
+4. back-end persistindo no DynamoDB: `PASS`;
+5. acesso direto ao back-end bloqueado: `PASS`;
+6. acesso direto ao banco sem autenticação bloqueado: `PASS`;
+7. failover do front-end para a origem secundária: `PASS`.
 
-    subgraph Backend_Layer ["⚡ Camada 3: Back-end Serverless (AWS Lambda)"]
-        Lambda["⚡ AWS Lambda (Express Serverless Handler)\n[Acesso direto sem API Gateway: BLOQUEADO ❌]"]
-    end
+A auditoria automatizada registrou 38 controles aprovados, nenhuma falha e dois
+avisos opcionais relacionados a serviços que poderiam adicionar custo. Os detalhes,
+logs e capturas estão em [`evidencias/`](evidencias/).
 
-    subgraph Database_Layer ["🛢️ Camada 4: Banco de Dados Gerenciado (DynamoDB)"]
-        DynamoDB[("⚡ AWS DynamoDB (Tabela: Todos)\n[Billing: PAY_PER_REQUEST]\n[Acesso público via internet: BLOQUEADO ❌]")]
-    end
+O diagrama da arquitetura está em
+[`DIAGRAMA_ARQUITETURA.md`](DIAGRAMA_ARQUITETURA.md).
 
-    %% Fluxos Permitidos
-    User -->|1. HTTPS 443| DNS
-    DNS -->|2. Resolução TLS 1.3| ProxyFront
-    ProxyFront -->|3a. Requisição Front-end /| POP1
-    ProxyFront -.->|3a. Redundância / Failover| POP2
-    POP1 & POP2 -->|4. Autenticação via OAC| S3Bucket
+## Implantação e relação com as branches
 
-    DNS -->|2b. Requisição API /api/*| ProxyBack
-    ProxyBack -->|5. Invocação IAM Privada| Lambda
-    Lambda -->|6. AWS SDK v3 / SigV4| DynamoDB
+Não existe pipeline CI/CD neste repositório. Fazer merge de `dev` em `master` não
+altera automaticamente a AWS e não troca o ambiente em execução. O ambiente atual
+usa os stacks `uniamerica-frontend-dev` e `uniamerica-backend-dev` porque esses
+nomes e o parâmetro `EnvironmentName=dev` estão definidos nos scripts de deploy.
 
-    %% Fluxos Bloqueados
-    Attacker -.->|❌ Bloqueado (403 Forbidden - Sem OAC)| S3Bucket
-    Attacker -.->|❌ Bloqueado (Sem Function URL Exposta)| Lambda
-    Attacker -.->|❌ Bloqueado (Requer IAM SigV4 Válido)| DynamoDB
-
-    style User fill:#2ecc71,stroke:#27ae60,color:#fff
-    style Attacker fill:#e74c3c,stroke:#c0392b,color:#fff
-    style DNS fill:#3498db,stroke:#2980b9,color:#fff
-    style ACM fill:#9b59b6,stroke:#8e44ad,color:#fff
-    style ProxyFront fill:#9b59b6,stroke:#8e44ad,color:#fff
-    style ProxyBack fill:#9b59b6,stroke:#8e44ad,color:#fff
-    style S3Bucket fill:#f39c12,stroke:#d35400,color:#fff
-    style Lambda fill:#f39c12,stroke:#d35400,color:#fff
-    style DynamoDB fill:#11998e,stroke:#38ef7d,color:#fff
-```
-
----
-
-## 7. Checklist de Testes e Evidências
-
-| Item de Teste | Esperado | Status |
-| :--- | :--- | :---: |
-| **1. Acesso ao front-end pelo domínio** | `curl -I https://todo.seudominio.com` ➔ `HTTP/2 200` | ✅ PASS |
-| **2. Acesso ao back-end pela API** | `curl https://SUA-API-ID.execute-api.../todos` ➔ `[]` | ✅ PASS |
-| **3. Front-end conversando com back-end** | Criar, concluir e excluir tarefas via UI | ✅ PASS |
-| **4. Back-end conversando com o banco** | Tarefas visíveis no Console DynamoDB (Tabela `Todos`) | ✅ PASS |
-| **5. Bloqueio de acesso direto ao S3** | `curl -I https://SEU-BUCKET.s3.amazonaws.com/index.html` ➔ `403 Forbidden` | ❌ BLOQUEADO |
-| **6. Bloqueio de acesso direto ao Lambda** | Sem Function URL pública exposta | ❌ BLOQUEADO |
-| **7. Bloqueio de acesso direto ao DynamoDB** | Sem IP/porta pública (exige IAM SigV4) | ❌ BLOQUEADO |
-| **8. Teste de redundância do front-end** | Cabeçalho `x-cache: Hit from cloudfront` via múltiplos POPs CDN | ✅ PASS |
-
----
-
-## 8. Instruções de Manutenção e Redeploy
-
-- **Redeploy do Back-end:**
-  ```bash
-  cd backend
-  sam build && sam deploy
-  ```
-
-- **Redeploy do Front-end:**
-  ```bash
-  cd frontend
-  npm run build
-  aws s3 sync build/ s3://SEU-BUCKET-FRONTEND --delete
-  aws cloudfront create-invalidation --distribution-id SEU_DISTRIBUTION_ID --paths "/*"
-  ```
+A branch `master` será apenas a versão estável do código entregue. Para implantar
+outro ambiente denominado `prod`, seria necessário executar um deploy separado com
+nomes de stack, parâmetros e domínios próprios. Isso não é necessário para comprovar
+os requisitos desta atividade, pois a infraestrutura atual já está funcionando.
